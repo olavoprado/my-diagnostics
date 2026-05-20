@@ -1,0 +1,295 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// Núcleo Multi-tenant
+// ==========================================
+model Company {
+  id         String   @id @default(uuid())
+  name       String
+  cnpj       String   @unique
+  logoUrl    String?
+  planId     String?
+  createdAt  DateTime @default(now())
+
+  users      UserCompany[]
+  workplaces Workplace[]
+  diagnostics Diagnostic[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  companies    UserCompany[]
+}
+
+model UserCompany {
+  id        String   @id @default(uuid())
+  userId    String
+  companyId String
+  role      Role     @default(COLABORADOR) // admin | gestor | colaborador | auditor
+
+  user      User     @relation(fields: [userId], references: [id])
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@unique([userId, companyId])
+}
+
+enum Role {
+  ADMIN
+  GESTOR
+  COLABORADOR
+  AUDITOR
+}
+
+model Workplace {
+  id        String   @id @default(uuid())
+  companyId String
+  name      String
+  address   String?
+  city      String?
+  state     String?
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  exposureGroups ExposureGroup[]
+  diagnostics Diagnostic[]
+}
+
+// ==========================================
+// Motor de Módulos & Inventário
+// ==========================================
+model Module {
+  id          String   @id @default(uuid())
+  name        String   // Ex: NR-1, NR-9, ESG
+  description String?
+  version     String   @default("1.0")
+  isActive    Boolean  @default(true)
+
+  categories  RiskCategory[]
+  templates   FormTemplate[]
+  diagnostics Diagnostic[]
+}
+
+model RiskCategory {
+  id        String   @id @default(uuid())
+  moduleId  String
+  name      String
+  code      String   // Ex: FISICO, QUIMICO
+
+  module    Module   @relation(fields: [moduleId], references: [id])
+  items     RiskItem[]
+}
+
+model RiskItem {
+  id               String   @id @default(uuid())
+  riskCategoryId   String
+  code             String
+  description      String
+  severityDefault  Int
+
+  category         RiskCategory @relation(fields: [riskCategoryId], references: [id])
+  questionOptions  QuestionOption[]
+  diagnosticItems  DiagnosticRiskItem[]
+  actionPlans      ActionPlan[]
+}
+
+model ExposureGroup { // GHE
+  id           String   @id @default(uuid())
+  workplaceId  String
+  name         String
+  description  String?
+  functionList String?  // Ex: "Soldador, Montador"
+
+  workplace    Workplace @relation(fields: [workplaceId], references: [id])
+  diagnosticItems DiagnosticRiskItem[]
+}
+
+// ==========================================
+// Motor de Formulários Dinâmicos
+// ==========================================
+model FormTemplate {
+  id          String   @id @default(uuid())
+  moduleId    String
+  name        String
+  description String?
+  version     String   @default("1.0")
+
+  module      Module   @relation(fields: [moduleId], references: [id])
+  sections    FormSection[]
+  diagnostics Diagnostic[]
+}
+
+model FormSection {
+  id             String   @id @default(uuid())
+  formTemplateId String
+  title          String
+  orderIndex     Int
+
+  template       FormTemplate @relation(fields: [formTemplateId], references: [id])
+  questions      Question[]
+}
+
+model Question {
+  id          String   @id @default(uuid())
+  sectionId   String
+  code        String
+  text        String
+  type        QuestionType
+
+  section     FormSection @relation(fields: [sectionId], references: [id])
+  options     QuestionOption[]
+  rules       QuestionRule[] @relation("QuestionRules")
+  ruleTargets QuestionRule[] @relation("RuleTarget")
+  answers     DiagnosticAnswer[]
+}
+
+enum QuestionType {
+  TEXT
+  NUMBER
+  SELECT
+  MULTISELECT
+  BOOLEAN
+  DATE
+  FILE
+  SCALE
+}
+
+model QuestionOption {
+  id          String   @id @default(uuid())
+  questionId  String
+  label       String
+  value       String
+  riskItemId  String?
+
+  question    Question @relation(fields: [questionId], references: [id])
+  riskItem    RiskItem? @relation(fields: [riskItemId], references: [id])
+}
+
+model QuestionRule {
+  id                  String   @id @default(uuid())
+  questionId          String
+  conditionQuestionId String
+  conditionValue      String
+  action              RuleAction
+
+  question            Question @relation("QuestionRules", fields: [questionId], references: [id])
+  conditionQuestion   Question @relation("RuleTarget", fields: [conditionQuestionId], references: [id])
+}
+
+enum RuleAction {
+  SHOW
+  HIDE
+  REQUIRE
+}
+
+// ==========================================
+// Diagnósticos e Respostas
+// ==========================================
+model Diagnostic {
+  id                String   @id @default(uuid())
+  companyId         String
+  workplaceId       String
+  moduleId          String
+  formTemplateId    String
+  status            DiagnosticStatus @default(IN_PROGRESS)
+  startedAt         DateTime @default(now())
+  completedAt       DateTime?
+  responsibleUserId String?
+
+  company           Company      @relation(fields: [companyId], references: [id])
+  workplace         Workplace    @relation(fields: [workplaceId], references: [id])
+  module            Module       @relation(fields: [moduleId], references: [id])
+  template          FormTemplate @relation(fields: [formTemplateId], references: [id])
+
+  answers           DiagnosticAnswer[]
+  riskItems         DiagnosticRiskItem[]
+  actionPlans       ActionPlan[]
+}
+
+enum DiagnosticStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model DiagnosticAnswer {
+  id           String   @id @default(uuid())
+  diagnosticId String
+  questionId   String
+  textValue    String?
+  numberValue  Float?
+  optionIds    String[]
+  fileUrl      String?
+  answeredBy   String?
+  answeredAt   DateTime @default(now())
+
+  diagnostic   Diagnostic @relation(fields: [diagnosticId], references: [id])
+  question     Question   @relation(fields: [questionId], references: [id])
+}
+
+model DiagnosticRiskItem {
+  id                  String   @id @default(uuid())
+  diagnosticId        String
+  riskItemId          String
+  exposureGroupId     String
+  probability         Int      // 1-5
+  severity            Int      // 1-5
+  riskScore           Int      // Probabilidade * Severidade
+  currentControls     String?
+  recommendedActions  String?
+  deadline            DateTime?
+  status              RiskStatus @default(IDENTIFIED)
+
+  diagnostic          Diagnostic @relation(fields: [diagnosticId], references: [id])
+  riskItem            RiskItem   @relation(fields: [riskItemId], references: [id])
+  exposureGroup       ExposureGroup @relation(fields: [exposureGroupId], references: [id])
+}
+
+enum RiskStatus {
+  IDENTIFIED
+  CONTROLLED
+  MITIGATED
+}
+
+// ==========================================
+// Plano de Ação
+// ==========================================
+model ActionPlan {
+  id                  String   @id @default(uuid())
+  diagnosticId        String
+  riskItemId          String
+  description         String
+  responsibleUserId   String?
+  deadline            DateTime?
+  status              ActionStatus @default(PENDING)
+  priority            ActionPriority @default(MEDIUM)
+  evidenceUrl         String?
+  completedAt         DateTime?
+
+  diagnostic          Diagnostic @relation(fields: [diagnosticId], references: [id])
+  riskItem            RiskItem   @relation(fields: [riskItemId], references: [id])
+}
+
+enum ActionStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  OVERDUE
+}
+
+enum ActionPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
