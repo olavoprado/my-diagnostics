@@ -49,8 +49,7 @@ export async function authRoutes(server: FastifyInstance) {
         data: {
           companyId: company.id,
           name: 'Sede Principal (Matriz)',
-          description: 'Unidade central gerada automaticamente',
-        }
+        },
       });
 
       await tx.userCompany.create({
