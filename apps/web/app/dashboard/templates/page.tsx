@@ -74,7 +74,9 @@ export default function TemplateEditorPage() {
                 value={section.title}
                 onChange={(e) => {
                   const newSecs = [...sections];
-                  newSecs[sIdx].title = e.target.value;
+                  const sec = newSecs[sIdx];
+                  if (!sec) return;
+                  sec.title = e.target.value;
                   setSections(newSecs);
                 }}
                 className="bg-transparent text-xl font-semibold text-white border-b border-transparent hover:border-white/20 focus:border-indigo-500 focus:outline-none px-2 py-1 transition-colors w-full max-w-sm"
@@ -92,7 +94,10 @@ export default function TemplateEditorPage() {
                           value={question.text}
                           onChange={(e) => {
                             const newSecs = [...sections];
-                            newSecs[sIdx].questions[qIdx].text = e.target.value;
+                            const sec = newSecs[sIdx];
+                            const q = sec?.questions?.[qIdx];
+                            if (!sec || !q) return;
+                            q.text = e.target.value;
                             setSections(newSecs);
                           }}
                           className="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 resize-none h-12"
@@ -109,7 +114,11 @@ export default function TemplateEditorPage() {
                               value={opt.label}
                               onChange={(e) => {
                                 const newSecs = [...sections];
-                                newSecs[sIdx].questions[qIdx].options[oIdx].label = e.target.value;
+                                const sec = newSecs[sIdx];
+                                const q = sec?.questions?.[qIdx];
+                                const o = q?.options?.[oIdx];
+                                if (!sec || !q || !o) return;
+                                o.label = e.target.value;
                                 setSections(newSecs);
                               }}
                               className="bg-slate-900 border border-white/10 rounded-md px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500 w-48"
@@ -122,7 +131,11 @@ export default function TemplateEditorPage() {
                                 checked={opt.isRisk}
                                 onChange={(e) => {
                                   const newSecs = [...sections];
-                                  newSecs[sIdx].questions[qIdx].options[oIdx].isRisk = e.target.checked;
+                                  const sec = newSecs[sIdx];
+                                  const q = sec?.questions?.[qIdx];
+                                  const o = q?.options?.[oIdx];
+                                  if (!sec || !q || !o) return;
+                                  o.isRisk = e.target.checked;
                                   setSections(newSecs);
                                 }}
                                 className="rounded bg-slate-900 border-white/10 text-indigo-500 focus:ring-indigo-500"
@@ -136,7 +149,11 @@ export default function TemplateEditorPage() {
                                 value={opt.riskCode}
                                 onChange={(e) => {
                                   const newSecs = [...sections];
-                                  newSecs[sIdx].questions[qIdx].options[oIdx].riskCode = e.target.value;
+                                  const sec = newSecs[sIdx];
+                                  const q = sec?.questions?.[qIdx];
+                                  const o = q?.options?.[oIdx];
+                                  if (!sec || !q || !o) return;
+                                  o.riskCode = e.target.value;
                                   setSections(newSecs);
                                 }}
                                 className="bg-red-500/10 border border-red-500/30 rounded-md px-3 py-1.5 text-sm text-red-400 focus:outline-none focus:border-red-500 w-32 placeholder-red-400/50"
